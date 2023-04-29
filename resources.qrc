@@ -1,0 +1,10 @@
+<RCC>
+    <qresource prefix="/">
+        <file>res/appIcon.png</file>
+    </qresource>
+    <qresource prefix="/n">
+        <file>res/aboutAuthor.png</file>
+        <file>res/helpWindow.png</file>
+        <file>res/aboutMachine.png</file>
+    </qresource>
+</RCC>
