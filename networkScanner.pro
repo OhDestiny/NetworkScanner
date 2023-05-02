@@ -13,6 +13,7 @@ SOURCES += \
     aboutauthor.cpp \
     aboutmachine.cpp \
     helpwindow.cpp \
+    hostscanthread.cpp \
     main.cpp \
     mainwindow.cpp
 
@@ -20,7 +21,10 @@ HEADERS += \
     aboutauthor.h \
     aboutmachine.h \
     helpwindow.h \
-    mainwindow.h
+    hostscanthread.h \
+    mainwindow.h \
+    ping.h \
+    tools.h
 
 FORMS += \
     aboutauthor.ui \

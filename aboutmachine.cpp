@@ -1,5 +1,7 @@
 #include "aboutmachine.h"
 #include "ui_aboutmachine.h"
+#include <QStringList>
+#include "tools.h"
 
 AboutMachine::AboutMachine(QWidget *parent) :
     QDialog(parent),
@@ -71,14 +73,34 @@ void AboutMachine::getAndShowHostInfo(){
     tablewidget->setItem(4,0,new QTableWidgetItem("机器主机名"));
     tablewidget->setItem(4,1,new QTableWidgetItem(QSysInfo::machineHostName()));
 
-    tablewidget->setItem(5,0,new QTableWidgetItem("操作系统类型"));
-    tablewidget->setItem(5,1,new QTableWidgetItem(QSysInfo::productType()));
 
-    tablewidget->setItem(6,0,new QTableWidgetItem("操作系统名称"));
-    tablewidget->setItem(6,1,new QTableWidgetItem(QSysInfo::prettyProductName()));
 
-    tablewidget->setItem(7,0,new QTableWidgetItem("操作系统版本"));
-    tablewidget->setItem(7,1,new QTableWidgetItem(QSysInfo::productVersion()));
+    // 由于qt只支持到win10 所以要判断系统是win11 需要使用操作系统的版本号进行判断  10.0.22000 当系统的版本号的第三个数大于22000的时候，是win11 所以在此处需要做出判断
+    // 将版本号 按照 '.' 分割开，放到QStringList上，然后再转换成数组，再取出数组的第三个位置的数字，进行判断
+    int *kernelVersion = stringIpToInt(QSysInfo::kernelVersion());
+    int productVersion = stringPortToInt(QSysInfo::productVersion());
+    if(productVersion == 10 && kernelVersion[2] >= 22000){
+
+        tablewidget->setItem(5,0,new QTableWidgetItem("操作系统类型"));
+        tablewidget->setItem(5,1,new QTableWidgetItem("windows"));
+
+        tablewidget->setItem(6,0,new QTableWidgetItem("操作系统名称"));
+        tablewidget->setItem(6,1,new QTableWidgetItem("windows 11"));
+
+        tablewidget->setItem(7,0,new QTableWidgetItem("操作系统版本"));
+        tablewidget->setItem(7,1,new QTableWidgetItem("11"));
+    }
+    else{
+
+        tablewidget->setItem(5,0,new QTableWidgetItem("操作系统类型"));
+        tablewidget->setItem(5,1,new QTableWidgetItem(QSysInfo::productType()));
+
+        tablewidget->setItem(6,0,new QTableWidgetItem("操作系统名称"));
+        tablewidget->setItem(6,1,new QTableWidgetItem(QSysInfo::prettyProductName()));
+
+        tablewidget->setItem(7,0,new QTableWidgetItem("操作系统版本"));
+        tablewidget->setItem(7,1,new QTableWidgetItem(QSysInfo::productVersion()));
+    }
 
     // 主机的ip地址
     tablewidget->setItem(8,0,new QTableWidgetItem("主机IP地址"));

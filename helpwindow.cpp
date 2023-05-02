@@ -10,7 +10,7 @@ helpWindow::helpWindow(QWidget *parent) :
     // 设置帮助文档的标题
     setWindowTitle("帮助文档");
 
-    // 设置窗口的图标 ": + 前缀名 + 文件名"
+    // 设s's置窗口的图标 ": + 前缀名 + 文件名"
     // ui->->setIcon(QIcon(":/n/res/helpWindow.png"));
 }
 
