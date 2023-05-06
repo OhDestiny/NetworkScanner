@@ -8,6 +8,7 @@
 #include <Winsock2.h>
 #include <Windows.h>
 #include <bitset>
+#include <QTcpSocket>
 using namespace std;
 #pragma comment (lib, "ws2_32.lib")
 // 定义宏
@@ -241,7 +242,16 @@ inline unsigned short chsum(icmpHeader *picmp, int len){
     return (unsigned short)~sum;
 }
 
-// ----------------------------------下面实现ping操作-----------------------------------------------------
+// ----------------------------------下面实现扫描操作-----------------------------------------------------
+
+// 单个端口是否开启
+inline bool singlePortScan(QString desIp, int port){
+    QTcpSocket so
+}
+// 判断端口是否开启，直接使用TCP连接进行测试
+inline void portScan(QString desIp, int startPort, int endPort, HostInfos &host){
+    
+} 
 
 // 构造icmp报文 发送给目标主机 获得返回报， 通过回包源地址判断是需要的回包，
 // 在线：通过是否收到指定的回包判断目标主机是否在线
@@ -385,10 +395,6 @@ inline void scanning(TransferParas transferParas, HostInfos &host){
 
 
     // 端口扫描函数  入参：目的ip，起始端口，结束端口   出参：host
-
-
-    // 将扫描完成的host 传回main函数， 展现出来
-
-
+    portScan(transferParas.desIp, intStartPort, intEndPort, host);
 }
 #endif // TOOLS_H

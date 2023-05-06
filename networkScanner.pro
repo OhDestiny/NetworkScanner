@@ -15,7 +15,8 @@ SOURCES += \
     helpwindow.cpp \
     hostscanthread.cpp \
     main.cpp \
-    mainwindow.cpp
+    mainwindow.cpp \
+    portscanthread.cpp
 
 HEADERS += \
     aboutauthor.h \
@@ -24,6 +25,7 @@ HEADERS += \
     hostscanthread.h \
     mainwindow.h \
     ping.h \
+    portscanthread.h \
     tools.h
 
 FORMS += \

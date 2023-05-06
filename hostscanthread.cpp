@@ -2,42 +2,36 @@
 #include <QElapsedTimer>
 #include <mainwindow.h>
 #include <QDebug>
+#include "ping.h"
 
-HostScanThread::HostScanThread(QThread *parent) : QThread(parent)
+HostScanThread::HostScanThread(QThread *parent) : QObject(parent), QRunnable()
 {
-
+    setAutoDelete(true);
 }
 
 // 接收主线程的参数的槽函数
-void HostScanThread::recvParameters(Parameters parameters)
+
+
+void HostScanThread::recvParameters(TransferParas transferParas)
 {
-    m_parameters = parameters;
-    qDebug() << "结束ip:" << m_parameters.strEndIp;
-    qDebug() << "结束port:" << m_parameters.strEndPort;
-    qDebug() << "开始ip:" << m_parameters.strStartIp;
-    qDebug() << "开始port:" << m_parameters.strStartPort;
+    m_transferParas = transferParas;
+    qDebug() << "目标ip:" << transferParas.desIp;
+    qDebug() << "开始port:" << transferParas.startPort;
+    qDebug() << "结束port:" << transferParas.endPort;
 }
+
+// 接收到消息之后就可以进行子线程的扫描操作 ------> run()
+
 
 // 这里的run()里面直接写子线程需要实现的逻辑
 void HostScanThread::run()
 {
     // QThread::currentThread();                         // 获取当前的线程的地址
     // 定义主机类型的vector
-    QVector<HostInfos> hostList;
-
-    // for循环 创建host 并且赋值，然后append到list  现在先用固定的测试效果
     HostInfos host;
-    host.ipAddr = "1.1.1.1";
-    host.isOn = "online";
-    host.osInfo = "windows";
-    host.ports[0] = "1";
-    host.potentialBug[0] = "blue";
-    host.services[0] = "hhh";
 
 
-    // 将这个host加到hostList后面
-    hostList.append(host);
 
-    // 返回一个主机类型的vector
-    emit sendHost(hostList);
+    // 返回一个主机   每一次运行完，都会向主线程发送该主机信息
+    emit sendHost(host);
 }
