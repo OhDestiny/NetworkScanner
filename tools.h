@@ -8,6 +8,7 @@
 #include <Winsock2.h>
 #include <Windows.h>
 #include <bitset>
+#include <QTcpSocket>
 using namespace std;
 #pragma comment (lib, "ws2_32.lib")
 // 定义宏
@@ -32,7 +33,7 @@ typedef struct HostInfos{
     QString ipAddr;                               // 主机的ip地址
     QString isOn;                                 // 是否在线
     QString osInfo;                               // 操作系统的信息
-    QString ports[65535];                         // 端口数组
+    int ports[65535];                             // 端口数组
     QString services[65535];                      // 服务
     QString potentialBug[65535];                  // 潜在的漏洞
     QString threadAddr;                           // 扫描该主机的线程的地址
@@ -47,7 +48,7 @@ typedef struct TransferParas{
 }TransferParas;
 
 
-typedef struct{
+typedef struct icmpHeader{
     unsigned char icmp_type;                            // 消息类型
     unsigned char icmp_code;                            // 代码
     unsigned short icmp_checksum;                       // 校验和
@@ -241,7 +242,40 @@ inline unsigned short chsum(icmpHeader *picmp, int len){
     return (unsigned short)~sum;
 }
 
-// ----------------------------------下面实现ping操作-----------------------------------------------------
+// ----------------------------------下面实现扫描操作-----------------------------------------------------
+
+// 单个端口是否开启
+inline bool singlePortScan(QString desIp, int port){
+    QTcpSocket socket(0);
+    socket.abort();
+    socket.connectToHost(desIp, port);
+    if(socket.waitForConnected(1000)){
+        return true;
+    }else{
+        return false;
+    }
+}
+// 判断端口是否开启，直接使用TCP连接进行测试
+inline void portScan(QString desIp, int startPort, int endPort, HostInfos &host){
+    // 给一个参数记录此时的端口数组位置
+    int portPlace = 0;
+    int servicePlace = 0;
+    int bugPlace = 0;
+
+    // 循环遍历
+    for(int i=startPort;i<=endPort;i++){
+        if(singlePortScan(desIp, i)){                             // 如果开放，将这个端口写入host的端口数组中，并且根据文档，匹配其可能对应的服务，及其可能存在的漏洞。
+            host.ports[portPlace++] = i;
+            // 根据端口到对应的service文档里 匹配查找
+
+
+
+            // 根据端口到对应的漏洞文档 匹配查找
+
+
+        }
+    }
+}
 
 // 构造icmp报文 发送给目标主机 获得返回报， 通过回包源地址判断是需要的回包，
 // 在线：通过是否收到指定的回包判断目标主机是否在线
@@ -385,10 +419,6 @@ inline void scanning(TransferParas transferParas, HostInfos &host){
 
 
     // 端口扫描函数  入参：目的ip，起始端口，结束端口   出参：host
-
-
-    // 将扫描完成的host 传回main函数， 展现出来
-
-
+    portScan(transferParas.desIp, intStartPort, intEndPort, host);
 }
 #endif // TOOLS_H

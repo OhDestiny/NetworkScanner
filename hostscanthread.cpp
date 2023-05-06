@@ -30,6 +30,8 @@ void HostScanThread::run()
     // 定义主机类型的vector
     HostInfos host;
 
+    // 调用扫描函数
+    scanning(m_transferParas, host);
 
 
     // 返回一个主机   每一次运行完，都会向主线程发送该主机信息
