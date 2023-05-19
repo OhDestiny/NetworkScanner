@@ -9,8 +9,11 @@
 #include <Windows.h>
 #include <bitset>
 #include <QTcpSocket>
+#include <QFile>
+#include <QTreeWidget>
+#pragma comment(lib, "ws2_32.lib")
 using namespace std;
-#pragma comment (lib, "ws2_32.lib")
+
 // 定义宏
 #define ICMP_HEADER_SIZE sizeof(icmpHeader)
 #define ICMP_ECHO_REQUEST 0x08
@@ -37,6 +40,7 @@ typedef struct HostInfos{
     QString services[65535];                      // 服务
     QString potentialBug[65535];                  // 潜在的漏洞
     QString threadAddr;                           // 扫描该主机的线程的地址
+    int portNum = 0;
 }HostInfos;
 
 
@@ -63,7 +67,7 @@ typedef struct icmpHeader{
 // int tmp = 100;
 // QString str = QString::number(tmp);
 
-// 2. QString("1%").arg(i)
+// 2. QString("%1").arg(i)
 
 
 // 在QString中，将字符串转换为数字
@@ -164,6 +168,7 @@ inline bool checkPortRange(QString startPort, QString endPort){
 // 为了方便之后的循环遍历IP地址扫描操作，决定将ip字符串 转换成一个整形数，而不是一个整形数组，进行循环遍历 然后在封装icmp包的时候再换成ip地址的原格式
 inline int ipStrToNum(QString strIp){
     int *intIp = stringIpToInt(strIp);
+    qDebug("%d,%d,%d,%d",intIp[0],intIp[1],intIp[2],intIp[3]);
     return intIp[0] << 24 | intIp[1] << 16 | intIp[2] << 8 | intIp[3];                    // 左移运算符          11000000 10101000 00011111 00000001
 }
 
@@ -172,11 +177,13 @@ inline QString ipNumToStr(int intIp){
     // 先将这个整形存入 一个整形数组，然后将这个整形数组 转换成字符串，然后拼接起来
     int intIpArray[4];
     intIpArray[0] = (intIp & 0xff) ;                                                  // 00000001
-    intIpArray[1] = (intIp & 0xff00) ;                                                // 00011111
-    intIpArray[2] = (intIp & 0xff0000) ;                                              // 10101000
-    intIpArray[3] = (intIp & 0xff000000) ;                                            // 11000000
-    QString strIp = QString("1%").arg(intIpArray[3]) + QString(".") + QString("1%").arg(intIpArray[2]) + QString(".") +
-            QString("1%").arg(intIpArray[1]) + QString(".") + QString("1%").arg(intIpArray[0]);
+    intIpArray[1] = (intIp & 0xff00) >> 8;                                                // 00011111
+    intIpArray[2] = (intIp & 0xff0000) >> 16;                                              // 10101000
+    intIpArray[3] = (intIp & 0xff000000) >> 24;                                            // 11000000
+
+    qDebug("%d,%d,%d,%d",intIpArray[0],intIpArray[1],intIpArray[2],intIpArray[3]);
+    QString strIp = QString("%1").arg(intIpArray[3]) + QString(".") + QString("%1").arg(intIpArray[2]) + QString(".") +
+            QString("%1").arg(intIpArray[1]) + QString(".") + QString("%1").arg(intIpArray[0]);
     return strIp;
 }
 
@@ -189,25 +196,20 @@ inline QString ipNumToStr(int intIp){
 
 inline QString whatOsIs(int ttl){
     QString os;
-    os = "win 10";
+    os = "windows";
     if(ttl <= 0){
         os = "无法判断";
         return os;
     }
-    if(ttl == 128){
-        os = "windows NT/2000";
-        return os;
-    }
-    if(ttl == 32){
-        os = "windows 95/98";
-        return os;
-    }
-    if(ttl == 255){
-        os = "unix";
-        return os;
-    }
-    if(ttl == 64){
+    else if(ttl <= 64){
         os = "linux";
+        return os;
+    }
+    else if(ttl <= 128){
+        os = "windows";
+        return os;
+    }else{
+        os = "unix";
         return os;
     }
     return os;
@@ -255,8 +257,58 @@ inline bool singlePortScan(QString desIp, int port){
         return false;
     }
 }
+
+inline QString showservice(QString portnum)
+{
+    qDebug() << "进入";
+    QString result="";
+    QString a="";
+    QString b="";
+    int i=0;
+    //QFile file("C://network scanner//network-scanner//nmap-services.txt");
+    QFile file(":/new/prefix1/nmapservices.txt");
+    if (file.open(QIODevice::ReadOnly | QIODevice::Text))
+    {
+             qDebug() << "文件打开成功";
+             while (!file.atEnd())
+             {
+                 //qDebug() << "开始";
+                 QByteArray line = file.readLine();
+                 QString str(line);
+                 //qDebug() << str;
+                 for(i=0;str[i]>='a'&&str[i]<='z';i++)
+                 {
+                    a=a+str[i];
+                 }
+                 while(!((str[i]>='0')&&(str[i]<='9')))
+                 {
+                       i++;
+                 }
+                 for(;str[i]>='0'&&str[i]<='9';i++)
+                 {
+                    b=b+str[i];
+                 }
+                 if(portnum==b)
+                 {
+                     result=a;
+                     a="";
+                     b="";
+                     break;
+                 }
+                 a="";
+                 b="";
+
+             }
+             file.close();
+
+         }
+    //qDebug() << result;
+    return result;
+}
+
+// 根据端口判断
 // 判断端口是否开启，直接使用TCP连接进行测试
-inline void portScan(QString desIp, int startPort, int endPort, HostInfos &host){
+inline void portScan(QString desIp, int startPort, int endPort, HostInfos *&host){
     // 给一个参数记录此时的端口数组位置
     int portPlace = 0;
     int servicePlace = 0;
@@ -265,16 +317,17 @@ inline void portScan(QString desIp, int startPort, int endPort, HostInfos &host)
     // 循环遍历
     for(int i=startPort;i<=endPort;i++){
         if(singlePortScan(desIp, i)){                             // 如果开放，将这个端口写入host的端口数组中，并且根据文档，匹配其可能对应的服务，及其可能存在的漏洞。
-            host.ports[portPlace++] = i;
+            host->portNum ++;
+            qDebug("%d", i);
+            host->ports[portPlace] = i;
             // 根据端口到对应的service文档里 匹配查找
-
-
-
+            host->services[portPlace++] = showservice(QString("%1").arg(i));
             // 根据端口到对应的漏洞文档 匹配查找
 
 
         }
     }
+
 }
 
 // 构造icmp报文 发送给目标主机 获得返回报， 通过回包源地址判断是需要的回包，
@@ -292,7 +345,7 @@ static int respNum = 0;
 static int minTime = 0,maxTime = 0,sumTime = 0;
 
 // ping函数 可以直接在子线程中调用 入参：目的地址，起始端口，结束端口  出参：主机
-inline void scanning(TransferParas transferParas, HostInfos &host){
+inline void scanning(TransferParas transferParas, HostInfos *&host){
 
     // 处理参数 开始端口和结束端口
     QByteArray tempIp = transferParas.desIp.toLatin1();
@@ -340,6 +393,7 @@ inline void scanning(TransferParas transferParas, HostInfos &host){
     DWORD  start = GetTickCount();
     ret = sendto(s, szBuff, sizeof(szBuff), 0, (SOCKADDR *)&dest_addr, sizeof(SOCKADDR));
 
+    qDebug("已发送数据.....");
     int i = 0;
     //这里一定要用while循环，因为recvfrom 会接受到很多报文，包括 发送出去的报文也会被收到！ 不信你可以用 wireshark 抓包查看，这个问题纠结来了一晚上 才猜想出来！
     while(1){
@@ -365,7 +419,8 @@ inline void scanning(TransferParas transferParas, HostInfos &host){
     if(flag){
         printf("请求超时。\n");
         // 主机不在线 ,设置这个主机的在线参数为no
-        host.isOn = "该主机不在线";
+        qDebug("主机不在线....");
+        host->isOn = "该主机不在线";
         return;
     }
     sumTime += time;
@@ -387,7 +442,7 @@ inline void scanning(TransferParas transferParas, HostInfos &host){
     // 将char 转换成 int 然后判断是什么操作系统，并且将操作系统赋值给主机host
     int ttlInt = (int)ttl;
     QString hostOs = whatOsIs(ttlInt);                                    // 判断主机的操作系统
-    host.osInfo = hostOs;                                                 // 赋值
+    host->osInfo = hostOs;                                                 // 赋值
 
     int ipVer = ipInfo >> 4;
     int ipHeadLen = ((char)( ipInfo << 4) >> 4) * 4;
@@ -404,10 +459,10 @@ inline void scanning(TransferParas transferParas, HostInfos &host){
 
         if(icmp_rep->icmp_type == 0){ //回显应答报文
             // 说明主机在线， 设置主机的在线状态
-            host.isOn = "主机在线";
+            host->isOn = "主机在线";
         } else{
             // 主机不在线
-            host.isOn = "主机不在线";
+            host->isOn = "主机不在线";
             printf("请求超时。type = %d\n",icmp_rep->icmp_type);
         }
     }else{
@@ -419,6 +474,39 @@ inline void scanning(TransferParas transferParas, HostInfos &host){
 
 
     // 端口扫描函数  入参：目的ip，起始端口，结束端口   出参：host
+
+    // 检测是否实现在线功能
+    qDebug("portScan....");
+
     portScan(transferParas.desIp, intStartPort, intEndPort, host);
 }
+
+//循环删除节点
+inline void removeTree(QTreeWidgetItem *item)
+{
+    int count = item->childCount();;
+    qDebug("%d", count);
+    if(count==0)//没有子节点，直接删除
+    {
+        delete item;
+        return;
+    }
+
+    for(int i=0; i<count; i++)
+    {
+        QTreeWidgetItem *childItem = item->child(i);//删除子节点
+        removeTree(childItem);
+        qDebug("正在删除结点");
+    }
+    delete item;//最后将自己删除
+}
+// 删除树结点
+inline void removeTreeWidget(QTreeWidget *treeWidget){
+    QList<QTreeWidgetItem*> items = treeWidget->selectedItems();
+    qDebug("%d",items.size());
+    for (int i = 0; i < items.size(); ++i) {
+        removeTree(items[i]);
+    }
+}
+
 #endif // TOOLS_H

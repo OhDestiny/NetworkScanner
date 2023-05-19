@@ -43,3 +43,7 @@ RESOURCES += \
     resources.qrc
 
 # ICON += "://res/appIcon.png"
+
+
+# add dynamic link lib
+LIBS += -lpthread libwsock32 libws2_32

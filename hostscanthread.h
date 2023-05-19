@@ -22,9 +22,11 @@ public:
     void run() override;
 
     TransferParas m_transferParas;                                   // 接收主线程的参数结构体
+    ~HostScanThread();
+
 
 signals:
-    void sendHost(HostInfos host);
+    void sendHost(HostInfos *);
 
 
 };

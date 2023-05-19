@@ -19,11 +19,17 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+    QVector<HostScanThread *> hostScanThreadList;                                  // 维护一个hostScanThread的数组
+    HostInfos host;
+ //   void recvHost(HostInfos m_host);                           // 接收子线程传来的主机信息
+    int index;
 
+
+//    void removeTreeWidget(QTreeWidget *treeWidget);
 private:
     Ui::MainWindow *ui;
-    HostScanThread* hostScanThread;
-    QVector<HostInfos> hostList;
+    QVector<HostInfos *> hostList;
+
 
 signals:
     void startHostScan(TransferParas transferParas);
@@ -34,6 +40,6 @@ private slots:
     void on_click_scan();                      // 点击扫描的槽函数
     void on_click_cancel();                    // 点击取消的槽函数
     void on_click_save();                      // 点击保存的槽函数
-    void recvHost(HostInfos host);                           // 接收子线程传来的主机信息
+    void recvHost(HostInfos *host);                           // 接收子线程传来的主机信息
 };
 #endif // MAINWINDOW_H

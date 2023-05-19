@@ -1,10 +1,15 @@
 <RCC>
-    <qresource prefix="/">
+    <qresource prefix="/doc">
         <file>res/appIcon.png</file>
     </qresource>
     <qresource prefix="/n">
         <file>res/aboutAuthor.png</file>
         <file>res/helpWindow.png</file>
         <file>res/aboutMachine.png</file>
+        <file>res/notChoose.png</file>
+        <file>res/choose.png</file>
+    </qresource>
+    <qresource prefix="/new/prefix1">
+        <file>nmapservices.txt</file>
     </qresource>
 </RCC>

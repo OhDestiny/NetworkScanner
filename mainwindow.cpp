@@ -7,13 +7,24 @@
 #include <QFileDialog>
 #include <hostscanthread.h>
 #include <QThreadPool>                            // 线程池
+#include <QDebug>
+#include <QTreeWidget>
 
+//子线程在主函数的构造函数中实例化，connect，槽函数接收消息正常。
+//子线程类在一个函数中实例化，connect，槽函数收不到消息。
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+
+    // 先在QVector里面存数据
+    for(int i = 0;i<100;i++){
+        HostScanThread *hostScanThread = new HostScanThread();
+        hostScanThreadList.append(hostScanThread);
+    }
+
 
     // 设置应用的名字
     setWindowTitle("network scanner");
@@ -79,12 +90,18 @@ MainWindow::MainWindow(QWidget *parent)
     // 创建线程进行主机在线扫描，以及根据ttl识别主机的操作系统，点击扫描后，直接开始线程
     // 需要给线程的参数，startIp， endIp， startPort， endPort
 
+
     connect(ui->pushButtonScan, SIGNAL(clicked()), this, SLOT(on_click_scan()));
 
     // 绑定主线程向主机扫描子线程传递数据的信号和槽函数
-    connect(this, &MainWindow::startHostScan, hostScanThread, &HostScanThread::recvParameters);
+    for(int threadNum = 0;threadNum < 20; threadNum++){
+        connect(this, &MainWindow::startHostScan, this->hostScanThreadList.at(threadNum), &HostScanThread::recvParameters);
+        connect(this->hostScanThreadList.at(threadNum), SIGNAL(sendHost(HostInfos *)), this, SLOT(recvHost(HostInfos *)));
 
-    connect(hostScanThread, &HostScanThread::sendHost, this, &MainWindow::recvHost);
+    }
+//    connect(this, &MainWindow::startHostScan, this->hostScanThread, &HostScanThread::recvParameters);
+
+//    connect(this->hostScanThread, &HostScanThread::sendHost, this, &MainWindow::recvHost);
 
     // 绑定点击取消，触发取消的槽函数
     connect(ui->pushButtonCancel, SIGNAL(clicked()), this, SLOT(on_click_cancel()));
@@ -93,8 +110,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->pushButtonSave, SIGNAL(clicked()), this, SLOT(on_click_save()));
 
     // 创建一个
-
-
+    index = 0;
 }
 
 // 帮助文档槽函数
@@ -118,6 +134,14 @@ void MainWindow::on_click_aboutMachine(){
 
 // 扫描槽函数
 void MainWindow::on_click_scan(){
+    // 清除QWightTree的数据
+    qDebug("------------------------------------------------------------------------------------------");
+    removeTreeWidget(ui->treeWidgetIsOnline);
+    removeTreeWidget(ui->treeWidgetOs);
+    removeTreeWidget(ui->treeWidgetPorts);
+    removeTreeWidget(ui->treeWidgetServices);
+    removeTreeWidget(ui->treeWidgetBugs);
+
 
     QString strStartIp;
     QString strEndIp;
@@ -215,6 +239,8 @@ void MainWindow::on_click_scan(){
     if(isParasOk){
         ui->textBrowserLog->append("参数设置成功，开始扫描....");
 
+        qDebug("接收参数成功，开始扫描......");
+
         Parameters parameters;
         parameters.strStartIp = strStartIp;
         parameters.strEndIp = strEndIp;
@@ -230,20 +256,36 @@ void MainWindow::on_click_scan(){
         // 设置最大线程数
         threadPool->setMaxThreadCount (stringPortToInt(threadNum));
 
+        qDebug("线程池开启成功，开启线程个数 %d", stringPortToInt(threadNum));
+
         // for循环创建runable对象 然后一个一个放入线程池
+
         for(int startIpFor=ipStrToNum(strStartIp); startIpFor<=ipStrToNum(strEndIp); startIpFor++){
             // 向runable对象传递 参数 一个带有ip地址和 起始端口以及结束端口的结构体对象
             TransferParas transferParas;
 
+
             transferParas.desIp = ipNumToStr(startIpFor);           // 整形ip转换为字符串类型
+
+            // 测试是否将ip传入
+            QByteArray tempIp = transferParas.desIp.toLatin1();
+            qDebug("开始扫描ip %s",tempIp.data());
+
+            qDebug("%d", index);
             transferParas.startPort = strStartPort;
             transferParas.endPort = strEndPort;
 
-            hostScanThread = new HostScanThread;                    // 创建新的主机扫描的线程 每次循环都需要创建新的对象
+//            HostScanThread *hostScanThread = new HostScanThread;                    // 创建新的主机扫描的线程 每次循环都需要创建新的对象
 
+//            hostScanThreadList.replace(index++, hostScanThread);
+
+           // emit startHostScans0(transferParas);                      // 给这个对象传递参数 传递参数 传递完成就可以向线程池中放入这个对象，让线程池分配线程去运行  ----> 85行
+
+
+            threadPool->start(hostScanThreadList.at(index++));                      // 放入线程池
+            qDebug("启动线程对象成功！");
             emit startHostScan(transferParas);                      // 给这个对象传递参数 传递参数 传递完成就可以向线程池中放入这个对象，让线程池分配线程去运行  ----> 85行
 
-            threadPool->start(hostScanThread);                      // 放入线程池
         }
     }
     else{
@@ -261,38 +303,58 @@ void MainWindow::on_click_scan(){
 // tablewidget->setItem(0,1,new QTableWidgetItem(QSysInfo::buildAbi()));
 
 // 接收来自线程池中runnable对象 处理好的HostInfos对象，并且将其传回主线程 ，接收之后使用一个列表接收，待全部处理完成，再使用for循环呈现出来
-void MainWindow::recvHost(HostInfos host){
+void MainWindow::recvHost(HostInfos *host){
     // 打印扫描这个主机的线程
     // 接收到主机消息 for循环展示在tabWidget上
-    qDebug() << "接收数据";
+
+
+    qDebug("接收数据.....");
 
     // 引入指纹库，根据端口开放情况 --> 匹配对应的服务，以及服务存在的漏洞
     hostList.append(host);
 
+    // 判断 如果主机不在线，如果不在线，后续的信息不需要呈现在界面上
+
     // 是否在线
-    QTreeWidgetItem *itemIsOn = new QTreeWidgetItem(ui->treeWidgetIsOnline);
-    itemIsOn->setText(0,host.ipAddr);
-    itemIsOn->setText(1,host.isOn);
+    if(host->isOn == "主机在线"){
+        QTreeWidgetItem *itemIsOn = new QTreeWidgetItem(ui->treeWidgetIsOnline);
+        itemIsOn->setText(0,host->ipAddr);
+        itemIsOn->setText(1,host->isOn);
+        itemIsOn->setSelected(true);
 
-    // 操作系统
-    QTreeWidgetItem *itemOs = new QTreeWidgetItem(ui->treeWidgetOs);
-    itemOs->setText(0,host.ipAddr);
-    itemOs->setText(1,host.osInfo);
+        // 操作系统
+        QTreeWidgetItem *itemOs = new QTreeWidgetItem(ui->treeWidgetOs);
+        itemOs->setText(0,host->ipAddr);
+        itemOs->setText(1,host->osInfo);
+        itemOs->setSelected(true);
 
-    // 端口
-    QTreeWidgetItem *itemPorts = new QTreeWidgetItem(ui->treeWidgetPorts);
-    itemPorts->setText(0,host.ipAddr);
-    itemPorts->setText(1,host.ports[0]);
+        // 端口
+        // for循环打印输出
+        for(int i=0;i<host->portNum;i++){
+            QTreeWidgetItem *itemPorts = new QTreeWidgetItem(ui->treeWidgetPorts);
+            itemPorts->setText(0,host->ipAddr);
+            itemPorts->setText(1,QString("%1").arg(host->ports[i]));
+            itemPorts->setSelected(true);
 
-    // 服务
-    QTreeWidgetItem *itemServices = new QTreeWidgetItem(ui->treeWidgetServices);
-    itemServices->setText(0,host.ipAddr);
-    itemServices->setText(1,host.services[0]);
+            // 服务
+            QTreeWidgetItem *itemServices = new QTreeWidgetItem(ui->treeWidgetServices);
+            itemServices->setText(0,host->ipAddr);
+            itemServices->setText(1,host->services[i]);
+            itemServices->setSelected(true);
 
-    // 漏洞
-    QTreeWidgetItem *itemBugs = new QTreeWidgetItem(ui->treeWidgetBugs);
-    itemBugs->setText(0,host.ipAddr);
-    itemBugs->setText(1,host.potentialBug[0]);
+            // 漏洞
+            QTreeWidgetItem *itemBugs = new QTreeWidgetItem(ui->treeWidgetBugs);
+            itemBugs->setText(0,host->ipAddr);
+            itemBugs->setText(1,host->potentialBug[i]);
+            itemBugs->setSelected(true);
+        }
+    }
+    else{
+        QTreeWidgetItem *itemIsOn = new QTreeWidgetItem(ui->treeWidgetIsOnline);
+        itemIsOn->setText(0,host->ipAddr);
+        itemIsOn->setText(1,host->isOn);
+        itemIsOn->setSelected(true);
+    }
 }
 
 // 取消槽函数
@@ -315,6 +377,15 @@ void MainWindow::on_click_save(){
     // 将hostList的内容存储到txt 或者是excel中
     ui->textBrowserLog->append(QString("已将主机信息存储到--->" + fileName));
 }
+
+// 删除树结点
+//void MainWindow::removeTreeWidget(QTreeWidget *treeWidget){
+//    QList<QTreeWidgetItem*> items = treeWidget->selectedItems();
+//    qDebug("%d",items.size());
+//    for (int i = 0; i < items.size(); ++i) {
+//        removeTree(items[i]);
+//    }
+//}
 
 // 析构函数
 MainWindow::~MainWindow()
