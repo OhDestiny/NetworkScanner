@@ -74,10 +74,10 @@ void AboutMachine::getAndShowHostInfo(){
     tablewidget->setItem(4,1,new QTableWidgetItem(QSysInfo::machineHostName()));
 
 
-
     // 由于qt只支持到win10 所以要判断系统是win11 需要使用操作系统的版本号进行判断  10.0.22000 当系统的版本号的第三个数大于22000的时候，是win11 所以在此处需要做出判断
     // 将版本号 按照 '.' 分割开，放到QStringList上，然后再转换成数组，再取出数组的第三个位置的数字，进行判断
-    int *kernelVersion = stringIpToInt(QSysInfo::kernelVersion());
+
+    int *kernelVersion = stringKernelVersionToInt(QSysInfo::kernelVersion());
     int productVersion = stringPortToInt(QSysInfo::productVersion());
     if(productVersion == 10 && kernelVersion[2] >= 22000){
 

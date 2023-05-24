@@ -14,18 +14,25 @@ SOURCES += \
     aboutmachine.cpp \
     helpwindow.cpp \
     hostscanthread.cpp \
+    hostscanthreadone.cpp \
+    hostscanthreadthree.cpp \
+    hostscanthreadtwo.cpp \
     main.cpp \
     mainwindow.cpp \
-    portscanthread.cpp
+    portscanthread.cpp \
+    someportscanthread.cpp
 
 HEADERS += \
     aboutauthor.h \
     aboutmachine.h \
     helpwindow.h \
     hostscanthread.h \
+    hostscanthreadone.h \
+    hostscanthreadthree.h \
+    hostscanthreadtwo.h \
     mainwindow.h \
-    ping.h \
     portscanthread.h \
+    someportscanthread.h \
     tools.h
 
 FORMS += \

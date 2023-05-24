@@ -1,5 +1,6 @@
 #ifndef TOOLS_H
 #define TOOLS_H
+
 #include <QString>
 #include <QStringList>
 #include <stdio.h>
@@ -11,6 +12,7 @@
 #include <QTcpSocket>
 #include <QFile>
 #include <QTreeWidget>
+
 #pragma comment(lib, "ws2_32.lib")
 using namespace std;
 
@@ -22,34 +24,49 @@ using namespace std;
 // --------------------定义一些结构体 方便在线程之间传递参数， 比如参数设定，主机的相关信息----------------------- //
 
 // 设定的参数
-typedef struct Parameters{
+typedef struct ipParameters{
     QString strStartIp;                           // 起始ip
     QString strEndIp;                             // 结束ip
-    QString strStartPort;                         // 起始port
-    QString strEndPort;                           // 结束port
-    QString threadNum;                            // 给定的线程数量
-}Parameters;
+}ipParameters;
 
-
-// 主机信息
+// 返回的主机信息
 typedef struct HostInfos{
     QString ipAddr;                               // 主机的ip地址
     QString isOn;                                 // 是否在线
     QString osInfo;                               // 操作系统的信息
+    QString threadAddr;                           // 扫描该主机的线程的地址
+}HostInfos;
+
+typedef struct portParameters{
+    QString strStartPort;                         // 起始port
+    QString strEndPort;                           // 结束port
+    QVector<HostInfos *> hostList;                // 在线的主机列表
+}portParameters;
+
+
+// 返回的端口信息
+typedef struct portInfos{
+    QString ipAddr;                               // 主机的ip地址
     int ports[65535];                             // 端口数组
     QString services[65535];                      // 服务
     QString potentialBug[65535];                  // 潜在的漏洞
     QString threadAddr;                           // 扫描该主机的线程的地址
-    int portNum = 0;
-}HostInfos;
+    int portNum = 0;                              // 记录开启的端口数量
+}portInfos;
 
 
-// 传递的参数
+// 传递的端口参数
 typedef struct TransferParas{
     QString desIp;                                // 目的主机的ip地址
     QString startPort;                            // 要扫描的目的主机的起始端口号
     QString endPort;                              // 要扫描的目的主机的结束端口号
 }TransferParas;
+
+// 传递的特定端口参数
+typedef struct SomePortParameters{
+    QVector<HostInfos *> hostList;                // 在线的主机列表
+    QVector<int> portList;                        // 特定的端口
+}SomePortParameters;
 
 
 typedef struct icmpHeader{
@@ -89,6 +106,15 @@ inline int* stringIpToInt(QString strIp){
     return ipInt;
 }
 
+inline int* stringKernelVersionToInt(QString kernel){
+    int static kernelInt[3];
+    QStringList kernelList = kernel.split('.');                  // 按 '.' 分成四个字符串 放在QStringList里面
+    for(int i=0 ;i<3 ;i++){                                 // 循环遍历这个StringList，将其中的转换为int 并且放入int数组中去
+        kernelInt[i] = kernelList[i].toInt();
+    }
+    return kernelInt;
+}
+
 
 // 将QString 的 port 转换为 int
 inline int stringPortToInt(QString strPort){
@@ -117,7 +143,7 @@ inline bool checkIpForm(QString strIp){
 
 
 // 检验ip地址的范围是否准确  结束ip 需要比 开始ip 的地址更 “大”
-inline bool checkIpRange(QString startIp, QString endIp){    
+inline bool checkIpRange(QString startIp, QString endIp){
     // 先转换为int 再进行比较
     int *startIpInt = stringIpToInt(startIp);
     int *endIpInt = stringIpToInt(endIp);
@@ -154,7 +180,7 @@ inline bool checkPortRange(QString startPort, QString endPort){
     // QString --> int
     int startPortInt = stringPortToInt(startPort);
     int endPortInt = stringPortToInt(endPort);
-    
+
     // 比较大小
     if(startPortInt <= endPortInt)
         return true;
@@ -308,26 +334,22 @@ inline QString showservice(QString portnum)
 
 // 根据端口判断
 // 判断端口是否开启，直接使用TCP连接进行测试
-inline void portScan(QString desIp, int startPort, int endPort, HostInfos *&host){
+inline void portScan(QString desIp, int startPort, int endPort, portInfos *&port){
     // 给一个参数记录此时的端口数组位置
     int portPlace = 0;
-    int servicePlace = 0;
-    int bugPlace = 0;
 
     // 循环遍历
     for(int i=startPort;i<=endPort;i++){
+        qDebug ("%d",i);
         if(singlePortScan(desIp, i)){                             // 如果开放，将这个端口写入host的端口数组中，并且根据文档，匹配其可能对应的服务，及其可能存在的漏洞。
-            host->portNum ++;
+            port->portNum ++;
             qDebug("%d", i);
-            host->ports[portPlace] = i;
+            port->ports[portPlace] = i;
             // 根据端口到对应的service文档里 匹配查找
-            host->services[portPlace++] = showservice(QString("%1").arg(i));
+            port->services[portPlace++] = showservice(QString("%1").arg(i));
             // 根据端口到对应的漏洞文档 匹配查找
-
-
         }
     }
-
 }
 
 // 构造icmp报文 发送给目标主机 获得返回报， 通过回包源地址判断是需要的回包，
@@ -344,14 +366,13 @@ inline void portScan(QString desIp, int startPort, int endPort, HostInfos *&host
 static int respNum = 0;
 static int minTime = 0,maxTime = 0,sumTime = 0;
 
-// ping函数 可以直接在子线程中调用 入参：目的地址，起始端口，结束端口  出参：主机
-inline void scanning(TransferParas transferParas, HostInfos *&host){
+// ping函数 可以直接在子线程中调用 入参：目的地址  出参：主机
+inline void scanning(QString desIpStr, HostInfos *&host){
 
     // 处理参数 开始端口和结束端口
-    QByteArray tempIp = transferParas.desIp.toLatin1();
+    QByteArray tempIp = desIpStr.toLatin1();
     char *desIp = tempIp.data();
-    int intStartPort = stringPortToInt(transferParas.startPort);
-    int intEndPort = stringPortToInt(transferParas.endPort);
+
 
     WSADATA wsaData;
     int nTimeOut = 1000;                           // 设置超时时间
@@ -471,14 +492,6 @@ inline void scanning(TransferParas transferParas, HostInfos *&host){
     }
 
     // ---------------------------------------上面是主机扫描程序，下面是端口扫描程序--------------------------------------------------
-
-
-    // 端口扫描函数  入参：目的ip，起始端口，结束端口   出参：host
-
-    // 检测是否实现在线功能
-    qDebug("portScan....");
-
-    portScan(transferParas.desIp, intStartPort, intEndPort, host);
 }
 
 //循环删除节点
@@ -508,5 +521,6 @@ inline void removeTreeWidget(QTreeWidget *treeWidget){
         removeTree(items[i]);
     }
 }
+
 
 #endif // TOOLS_H
